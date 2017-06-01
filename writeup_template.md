@@ -25,6 +25,9 @@
 [image1]: ./misc/rover_image.jpg
 [image2]: ./calibration_images/example_grid1.jpg
 [image3]: ./calibration_images/example_rock1.jpg
+[fig1]: ./misc/fig1.png
+[fig2]: ./misc/fig2.png
+[fig3]: ./misc/fig3.png
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/916/view) Points
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -46,7 +49,7 @@ At the same time, I changed the color-thresholding to allow for an upper RGB bou
 
 Then I got to work adding functionality. First up was a `blur_binarized_img` function that smoothed out the sometimes choppy results from a perspective transform.
 
-It takes in an image and a desired 'blur factor' to smooth out the images. The function is copied below:
+It takes in an image and a desired 'blur factor' to smooth out the images.
 
 ```python
 #Include a blurring functionality
@@ -58,6 +61,74 @@ def blur_binarized_img(img, blur_factor = 5):
 
     return blurred_binary
 ```
+
+Here's the difference it can make:
+
+*Unblurred*
+![unblurred][fig1]
+
+*Blurred*
+![blurred][fig2]
+
+This simple difference seems to make a difference when it comes to navigation and fidelity. Towards the same end I also wrote up a proximity thresholder that can help my rover ignore the stretched out artifacts of the perspective transform.
+
+```python
+#Set a proximity threshold on a binarized image. 
+#Will black out anything pixdistance away from a starttuple.
+def proximity_thresh(img, start_tuple, pixdistance):
+    startx, starty = start_tuple
+    xs, ys = img.nonzero()
+    blacked_out = np.array([np.sqrt((startx-x)**2 + (starty-y)**2) <= pixdistance for x,y in zip(xs,ys)])*1
+
+    for (x,y), value in zip( zip(xs,ys) , blacked_out):
+        img[x,y] = value
+    
+    return img
+```
+
+I was also unsatisfied with the policy of giving the rover a direction by taking the mean of available navigable angles. So I created a function that could preferentially find likely navigable spots currently in view and orient towards them.
+
+This function looks at the distribution of angles present in the view, and looks for peaks in that distribution. Then, given some 'desired angle', it orients the rover at the angle peak closest to the choice angle.
+
+I want my rover to be a wall-hugger, so I have it preferentially always turn right. This way you could get full coverage of the map with minimal backtracking.
+
+
+```python
+#I don't know if mean angle is the greatest policy for choosing where to go next.
+#This function enacts another policy: given a distribution of angles from the binarized image,
+#it will choose the mean angle from the subset closest to a 'choice angle'.
+def multimodal_angles(angles, choice_angle, angular_resolution = 10):
+    
+    #Getting distribution of angles present in snapshot
+    hist, edges =  np.histogram(angles, angular_resolution, range = (-1,1))
+    binvals = np.array([((edges[x+1]-edges[x])/2) + edges[x] for x in range(len(edges)-1)])
+    
+    #double-differentiate histogram to check where there are peaks in the center and/or edges
+    diff = np.sign(np.diff( np.concatenate([ np.zeros([1]), hist]) ))
+    diff = np.diff(  np.concatenate([diff, np.ones([1])*-1])  ) 
+    diff_idxs = diff == -2 #logical idx of jumps from positive to negative
+    
+    #There's still a chance that there are no 'peaks' because there are plateaus in angle freq.
+    #In these cases changing angular resolution should give us a tie-breaker...so just going to recursively call
+    #with a better angular resolution. Eventually, due to random chance occurences of angles, 
+    #a peak must emerge, even if it's garbage.
+    if np.sum(diff_idxs) == 0:
+        return multimodal_angles(angles, choice_angle, angular_resolution + 1)
+    
+    #Return the mean angle from a peak bin closest to the choice_angle
+    chosenpeak = np.argmin(np.abs(binvals - choice_angle)[diff_idxs])
+    chosenbin = np.nonzero(diff_idxs)[0][chosenpeak]
+    angle_idxs = np.logical_and(angles >= edges[chosenbin], angles <= edges[chosenbin + 1])
+    anglesubset = angles[angle_idxs]
+    
+    return np.mean(anglesubset)
+        
+```
+
+So you can see that instead of orienting towards the center of mass of navigable territory, the rover can now orient towards one of many detected centers of navigable mass!
+
+
+
 
 
 ### Notebook Analysis
