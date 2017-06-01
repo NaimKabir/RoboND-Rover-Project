@@ -61,7 +61,7 @@ def proximity_thresh(img, start_tuple, pixdistance):
 
 I was also unsatisfied with the policy of giving the rover a direction by taking the mean of available navigable angles. So I created a function that could preferentially find likely navigable spots currently in view and orient towards them.
 
-This function looks at the distribution of angles present in the view, and looks for peaks in that distribution. Then, given some 'desired angle', it orients the rover at the angle peak closest to the choice angle.
+This function looks at the distribution of angles present in the view, and searches for peaks in that distribution. Then, given some 'desired angle', it orients the rover at the angle peak closest to the choice angle.
 
 I want my rover to be a wall-hugger, so I have it preferentially always turn right. This way you could get full coverage of the map with minimal backtracking.
 
