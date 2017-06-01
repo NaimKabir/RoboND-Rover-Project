@@ -42,6 +42,7 @@ def proximity_thresh(img, start_tuple, pixdistance):
 
     return img
 
+
 # Define a function to convert to rover-centric coordinates
 def rover_coords(binary_img):
     # Identify nonzero pixels
@@ -62,6 +63,18 @@ def to_polar_coords(x_pixel, y_pixel):
     # Calculate angle away from vertical for each pixel
     angles = np.arctan2(y_pixel, x_pixel)
     return dist, angles
+
+# Threshold points based on angle. For example, when detecting obstacles, I only care about obstacles directly in front of me.
+def side_thresh(img, Hpix_from_center, Ypix_from_center):
+    ypos, xpos = img.nonzero()
+    filt1 = np.logical_and(xpos > -Hpix_from_center + img.shape[1] / 2, xpos < Hpix_from_center + img.shape[1] / 2)
+    filt2 = np.logical_and(ypos < Ypix_from_center + img.shape[0] / 2, ypos > -Ypix_from_center + img.shape[0] / 2)
+    filt3 = np.logical_and(filt1, filt2)
+    new = np.zeros(img.shape)
+
+    new[ypos[filt3], xpos[filt3]] = 1
+
+    return new
 
 # Define a function to apply a rotation to pixel positions
 def rotate_pix(xpix, ypix, yaw):
@@ -124,16 +137,28 @@ def perception_step(Rover):
     rocks = color_thresh(warped, (135,115,10), (210,185,45)) #No need to blur over tiny rocks
     rocks = proximity_thresh(rocks, start_tuple = (rocks.shape[0], rocks.shape[1]/2), pixdistance=80)
 
-    # obstacles = color_thresh(warped, (0,0,0), (62,56,52)) #No need to blur over obstacle rocks
-    # obstacles = proximity_thresh(obstacles, start_tuple = (obstacles.shape[0], obstacles.shape[1]/2), pixdistance=40)
+    # obstacles = color_thresh(warped, (0,0,0), (160,160,160)) #No need to blur over obstacle rocks
+    # #Be sure to make the obstacle detector nearsighted... or we'll just have a paranoid lil Rover scared of everything
+    # obstacles = side_thresh(proximity_thresh(obstacles, start_tuple = (obstacles.shape[0], obstacles.shape[1]/2), pixdistance=20), 30,  160)
+    #
+    # #Sending alert if there's an obstacle immediately ahead (will trigger stopping behavior)
+    # if np.sum(obstacles) > Rover.obstacle_pixthresh:
+    #     Rover.obstacle_ahead = True
+    #     Rover.mode = 'stop'
+    # else:
+    #     Rover.obstacle_ahead = False
 
     # 4) Update Rover.vision_image (this will be displayed on left side of screen)
-    Rover.vision_image[:,:,1] = rocks*255
+    Rover.vision_image[:,:,0] = rocks*255
+    # Rover.vision_image[:, :, 1] = obstacles * 255
     Rover.vision_image[:,:,2] = navigable*255
 
     # 5) Convert map image pixel values to rover-centric coords
     navigableXrov, navigableYrov = rover_coords(navigable)
     rocksXrov, rocksYrov = rover_coords(rocks)
+    # obstaclesXrov, obstaclesYrov = rover_coords(obstacles)
+
+
 
     # 8) Convert rover-centric pixel positions to polar coordinates
     # Update Rover pixel distances and angles
@@ -147,9 +172,14 @@ def perception_step(Rover):
     rocksX, rocksY = pix_to_world(rocksXrov, rocksYrov, \
                                           Rover.pos[0], Rover.pos[1], \
                                           Rover.yaw, world_size, scalefactor)
+    #
+    # obstaclesX, obstaclesY = pix_to_world(obstaclesXrov, obstaclesYrov, \
+    #                                       Rover.pos[0], Rover.pos[1], \
+    #                                       Rover.yaw, world_size, scalefactor)
 
     # 7) Update Rover worldmap (to be displayed on right side of screen)
-    Rover.worldmap[rocksY, rocksX, 0] = 155
+    # Rover.worldmap[obstaclesY, obstaclesX, 0] = 155
+    Rover.worldmap[rocksY, rocksX, 1] = 155
     Rover.worldmap[navigableY, navigableX, 2] = 155
 
 
