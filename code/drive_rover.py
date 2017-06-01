@@ -65,7 +65,23 @@ class RoverState():
         # Image output from perception step
         # Update this image to display your intermediate analysis steps
         # on screen in autonomous mode
-        self.vision_image = np.zeros((160, 320, 3), dtype=np.float) 
+        self.vision_image = np.zeros((160, 320, 3), dtype=np.float)
+
+        #Important state for the 'struggle' mode of motion
+        self.problem_yaw = None
+        self.solution_yaw = None
+        self.min_struggle_offset = 3 #Number of degrees to shift away from a 'problem yaw' getting you stuck
+
+        #Setting perspective transform src/dst as state, since it never changes and doesn't need to be recomputed
+        self.perspective_dst = 5
+        self.perspective_offset = 4
+        self.perspective_source = np.float32([[14, 140], [301, 140], [200, 96], [118, 96]])
+        self.perspective_destination =  np.float32([[self.vision_image.shape[1] / 2 - self.perspective_dst, self.vision_image.shape[0] - self.perspective_offset],
+                              [self.vision_image.shape[1] / 2 + self.perspective_dst, self.vision_image.shape[0] - self.perspective_offset],
+                              [self.vision_image.shape[1] / 2 + self.perspective_dst, self.vision_image.shape[0] - 2 * self.perspective_dst - self.perspective_offset],
+                              [self.vision_image.shape[1] / 2 - self.perspective_dst, self.vision_image.shape[0] - 2 * self.perspective_dst - self.perspective_offset],
+                              ])
+
         # Worldmap
         # Update this image with the positions of navigable terrain
         # obstacles and rock samples
@@ -75,6 +91,7 @@ class RoverState():
         self.near_sample = 0 # Will be set to telemetry value data["near_sample"]
         self.picking_up = 0 # Will be set to telemetry value data["picking_up"]
         self.send_pickup = False # Set to True to trigger rock pickup
+
 # Initialize our rover 
 Rover = RoverState()
 
