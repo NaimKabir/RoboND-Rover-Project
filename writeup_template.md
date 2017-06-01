@@ -1,45 +1,8 @@
 ## Project: Search and Sample Return
-### Writeup Template: You can use this file as a template for your writeup if you want to submit it as a markdown file, but feel free to use some other method and submit a pdf if you prefer.
-
----
-
-
-**The goals / steps of this project are the following:**  
-
-**Training / Calibration**  
-
-* Download the simulator and take data in "Training Mode"
-* Test out the functions in the Jupyter Notebook provided
-* Add functions to detect obstacles and samples of interest (golden rocks)
-* Fill in the `process_image()` function with the appropriate image processing steps (perspective transform, color threshold etc.) to get from raw images to a map.  The `output_image` you create in this step should demonstrate that your mapping pipeline works.
-* Use `moviepy` to process the images in your saved dataset with the `process_image()` function.  Include the video you produce as part of your submission.
-
-**Autonomous Navigation / Mapping**
-
-* Fill in the `perception_step()` function within the `perception.py` script with the appropriate image processing functions to create a map and update `Rover()` data (similar to what you did with `process_image()` in the notebook). 
-* Fill in the `decision_step()` function within the `decision.py` script with conditional statements that take into consideration the outputs of the `perception_step()` in deciding how to issue throttle, brake and steering commands. 
-* Iterate on your perception and decision function until your rover does a reasonable (need to define metric) job of navigating and mapping.  
-
-[//]: # (Image References)
-
-[image1]: ./misc/rover_image.jpg
-[image2]: ./calibration_images/example_grid1.jpg
-[image3]: ./calibration_images/example_rock1.jpg
-[fig1]: ./misc/fig1.png
-[fig2]: ./misc/fig2.png
-[fig3]: ./misc/fig3.png
-
-## [Rubric](https://review.udacity.com/#!/rubrics/916/view) Points
-### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
-
----
-### Writeup / README
-
-#### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  
 
 ### Notebook Analysis
 
-## Running the Notebook, and making modifications
+#### Running the Notebook, and making modifications
 
 The original notebook offered a scaffolding of useful functions, including warp, a simple color threshold, and some incomplete functions for rotating and scaling pixel coordinates from binary images.
 
@@ -129,7 +92,7 @@ So you can see that instead of orienting towards the center of mass of navigable
 
 ![It chose a peak!][fig3]
 
-## Processing Images
+#### Processing Images
 
 I used the color thresholding function to take different cuts of the raw image, one for navigable terrain and another for sample rocks.
 
@@ -143,30 +106,114 @@ I repeated the very same process used for navigable terrain for my image binarie
 
 Obstacles were ignored because they didn't seem very useful and also for some reason took a very long time to compute. This made making a movie difficult, and later in my robot caused a lot of lag between decision-making and actuating, so I chose to completely ignore 'obstacles' as a seperately calculated layer. Navigable terrain contained enough information about obstacles to completely supplant it.
 
-
-### Notebook Analysis
-#### 1. Run the functions provided in the notebook on test images (first with the test data provided, next on data you have recorded). Add/modify functions to allow for color selection of obstacles and rock samples.
-Here is an example of how to include an image in your writeup.
-
-![alt text][image1]
-
-#### 1. Populate the `process_image()` function with the appropriate analysis steps to map pixels identifying navigable terrain, obstacles and rock samples into a worldmap.  Run `process_image()` on your test data using the `moviepy` functions provided to create video output of your result. 
-And another! 
-
-![alt text][image2]
 ### Autonomous Navigation and Mapping
 
-#### 1. Fill in the `perception_step()` (at the bottom of the `perception.py` script) and `decision_step()` (in `decision.py`) functions in the autonomous mapping scripts and an explanation is provided in the writeup of how and why these functions were modified as they were.
+#### Perception Step and Decision Step
+
+The perception step involved copying exactly what I had in the notebook over to the Rover's code. This involved warping, putting a color threshold on the warped image to produce 'rock' and 'navigable' binaries. The navigable binary was thrown through a gaussian blur and proximity threshold as described above to create a smooth picture of what terrain was navigable.
+
+I made the proximity threshold on the rock binary a little higher so that the rover could map  rocks even if it could not access its area. However I still kept it bounded with a threshold because the warping of the perspective transform tended to give me spurious rock mappings.
 
 
-#### 2. Launching in autonomous mode your rover can navigate and map autonomously.  Explain your results and how you might improve them in your writeup.  
+```python
+    # Applying my color threshold, gaussian blur, and then a proximity threshold for each class I want to detect
+    navigable =  blur_binarized_img(color_thresh(warped, (160, 160, 160), (256,256,256)), 4)
+    navigable = proximity_thresh(navigable, start_tuple = (navigable.shape[0], navigable.shape[1]/2), pixdistance=60)
 
-**Note: running the simulator with different choices of resolution and graphics quality may produce different results, particularly on different machines!  Make a note of your simulator settings (resolution and graphics quality set on launch) and frames per second (FPS output to terminal by `drive_rover.py`) in your writeup when you submit the project so your reviewer can reproduce your results.**
+    rocks = color_thresh(warped, (135,115,10), (210,185,45)) #No need to blur over tiny rocks
+    rocks = proximity_thresh(rocks, start_tuple = (rocks.shape[0], rocks.shape[1]/2), pixdistance=80)
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+```
+
+From binaries I followed up with the now familiar rigmarole of extracting rover centric coordinates, which I could then convert to world coordinates using rotation and translation.
+
+I also extracted angles from the navigable terrain and stored this in the rover's state, as well as the world coordinates mentioned above.
+
+I made sure to add the world coordinates to the right layers of the Rover.worldmap state so that the supporting functions could properly count up found rocks and mapping fidelity: Navigable terrain fit in the blue layer, while rocks sat in the green layer.
+
+Again, obstacles were excluded because it seemed their computation caused a strange lag in the Rover and didn't allow it to update behaviors in time with it's decision making. Its turns always seemed a step behind its vision.
+
+```python
+ # 4) Update Rover.vision_image (this will be displayed on left side of screen)
+    Rover.vision_image[:,:,0] = rocks*255
+    # Rover.vision_image[:, :, 1] = obstacles * 255
+    Rover.vision_image[:,:,2] = navigable*255
+
+    # 5) Convert map image pixel values to rover-centric coords
+    navigableXrov, navigableYrov = rover_coords(navigable)
+    rocksXrov, rocksYrov = rover_coords(rocks)
+    # obstaclesXrov, obstaclesYrov = rover_coords(obstacles)
 
 
 
-![alt text][image3]
+    # 8) Convert rover-centric pixel positions to polar coordinates
+    # Update Rover pixel distances and angles
+    Rover.nav_dists, Rover.nav_angles  = to_polar_coords(navigableXrov, navigableYrov)
+
+    # 6) Convert rover-centric pixel values to world coordinates
+    navigableX, navigableY = pix_to_world(navigableXrov, navigableYrov, \
+                                      Rover.pos[0], Rover.pos[1], \
+                                      Rover.yaw, world_size, scalefactor)
+
+    rocksX, rocksY = pix_to_world(rocksXrov, rocksYrov, \
+                                          Rover.pos[0], Rover.pos[1], \
+                                          Rover.yaw, world_size, scalefactor)
+
+    # 7) Update Rover worldmap (to be displayed on right side of screen)
+    # Rover.worldmap[obstaclesY, obstaclesX, 0] = 155
+    Rover.worldmap[rocksY, rocksX, 1] = 155
+    Rover.worldmap[navigableY, navigableX, 2] = 155
+
+```
+
+The decision step got a lot more interesting.
+
+First off, instead of orienting the rover towards the mean angle from the navigable terrain, I used my `multimodal_angle` function, with a parameter specifying that I'd like to turn right at all possible times, thus hugging the right wall. The function would also allow it to choose a particular turn when it reached a fork in the road, rather than plodding towards the center divider.
+
+I made sure that during the 'stop' mode I'd turn in the OPPOSITE direction, preventing me from backtracking when I don't need to.
+
+During testing of autonomy, I also realized that the rover could get stuck on things it couldn't see in 3D space, like an outcropping boulder. I added a new Rover state called 'struggle' which triggers any time the Rover is accelerating but not moving.
+
+The idea of a struggle is that you take a breath, do a tiny turn, and floor it in hopes that you extricate yourself from your poor situation. It seemed to work well for most scenarios I saw while the rover chugged along.
+
+```python
+        #Oftentimes a 3-d overhead structure will halt the rover without it seeing the blockage in its 2-space map
+        #In these cases it must struggle to escape.
+        elif Rover.mode == 'struggle':
+
+            if Rover.problem_yaw is None:
+                Rover.problem_yaw = Rover.yaw
+
+            if Rover.vel < 0.01:
+                delta_angle = Rover.yaw - Rover.problem_yaw
+                delta_angle = (delta_angle + 180) % 360 - 180
+                if np.abs(delta_angle) > Rover.min_struggle_offset:
+                    Rover.throttle = 1 #Thrust hard to extricate as fast as possible. Good thing chassis integrity isn't a metric!
+                    Rover.problem_yaw = None #To set a new problem yaw if we get stuck again.
+                else:
+                    Rover.throttle = 0
+                    Rover.steer = 15
+            else:
+                Rover.mode = 'forward'
+                Rover.problem_yaw = None
+                Rover.solution_yaw = None
+```
+
+#### Autonomous Launch!
+
+Running with a patriotic resolution of 1776x1000, on Fastest graphics quality, on my only display, with an average FPS fo 45 or so, I managed to get:
+
+* 98% Mapped
+* 82% Fidelity
+* 5 rocks found
+* Within 480 seconds
+
+This performance was replicable for the most part, even when I had hard crashes into an unexpected boulder.
+
+I could probably improve this performance by fine tuning rover states to allow it to accelerate to different ground speeds given different conditions. For now I only have a very coarse state-space of 'forward', 'struggle', and 'stop'. There are many occassions on which the Rover could absolutely floor it that I don't take advantage of currently.
+
+I also waste a good deal of time struggling against boulders. If I could figure out a way to compute an angle to orient away from imminent obstacles in a fast enough way, I could get a much smoother ride through the Martian valley.
+
+
 
 
