@@ -127,8 +127,21 @@ def multimodal_angles(angles, choice_angle, angular_resolution = 10):
 
 So you can see that instead of orienting towards the center of mass of navigable territory, the rover can now orient towards one of many detected centers of navigable mass!
 
+![It chose a peak!][fig3]
 
+## Processing Images
 
+I used the color thresholding function to take different cuts of the raw image, one for navigable terrain and another for sample rocks.
+
+I used to also take one for obstacles, but didn't find much of a use for them in the project, so ended up ditching that.
+
+For navigable terrain, I also added my gaussian blur to smooth out the sometimes unpredictable warping, before adding a proximity threshold to keep my rover fairly nearsighted. From here I change the binary images to rover centric pixel coordinates, which I could turn into world coordinates using pix_to_world and the rover's known position in the world. I could immediately slap these coordinates on the world map to create an overlay.
+
+The nearsightedness of my rover proved to be a valuable tool in getting map fidelity fairly high, as you can see from the movie.
+
+I repeated the very same process used for navigable terrain for my image binaries that singled out rocks, and slapped them into a separate RGB layer.
+
+Obstacles were ignored because they didn't seem very useful and also for some reason took a very long time to compute. This made making a movie difficult, and later in my robot caused a lot of lag between decision-making and actuating, so I chose to completely ignore 'obstacles' as a seperately calculated layer. Navigable terrain contained enough information about obstacles to completely supplant it.
 
 
 ### Notebook Analysis
