@@ -104,9 +104,7 @@ So you can see that instead of orienting towards the center of mass of navigable
 
 #### Processing Images
 
-I used the color thresholding function to take different cuts of the raw image, one for navigable terrain and another for sample rocks.
-
-I used to also take one for obstacles, but didn't find much of a use for them in the project, so ended up ditching that.
+After warping, I used the color thresholding function to take different cuts of the raw image, one for navigable terrain and another for sample rocks.
 
 For navigable terrain, I also added my gaussian blur to smooth out the sometimes unpredictable warping, before adding a proximity threshold to keep my rover fairly nearsighted. From here I change the binary images to rover centric pixel coordinates, which I could turn into world coordinates using pix_to_world and the rover's known position in the world. I could immediately slap these coordinates on the world map to create an overlay.
 
