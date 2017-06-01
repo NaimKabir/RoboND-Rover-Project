@@ -24,7 +24,7 @@
 
 [image1]: ./misc/rover_image.jpg
 [image2]: ./calibration_images/example_grid1.jpg
-[image3]: ./calibration_images/example_rock1.jpg 
+[image3]: ./calibration_images/example_rock1.jpg
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/916/view) Points
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -34,7 +34,31 @@
 
 #### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  
 
-You're reading it!
+### Notebook Analysis
+
+## Running the Notebook, and making modifications
+
+The original notebook offered a scaffolding of useful functions, including warp, a simple color threshold, and some incomplete functions for rotating and scaling pixel coordinates from binary images.
+
+My first order of business was filling out the rotate_pix and translate_pix to get a properly function 'pix_to_world' function.
+
+At the same time, I changed the color-thresholding to allow for an upper RGB bound. This allowed me to threshold for navigable ground as well as sample rocks with separate usages of the function.
+
+Then I got to work adding functionality. First up was a `blur_binarized_img` function that smoothed out the sometimes choppy results from a perspective transform.
+
+It takes in an image and a desired 'blur factor' to smooth out the images. The function is copied below:
+
+```python
+#Include a blurring functionality
+def blur_binarized_img(img, blur_factor = 5):
+
+    # set a blur to smooth the threshed image
+    kernel = np.ones((blur_factor, blur_factor), np.float32) / 25
+    blurred_binary = cv2.filter2D(img, -1, kernel) > 0.5
+
+    return blurred_binary
+```
+
 
 ### Notebook Analysis
 #### 1. Run the functions provided in the notebook on test images (first with the test data provided, next on data you have recorded). Add/modify functions to allow for color selection of obstacles and rock samples.
