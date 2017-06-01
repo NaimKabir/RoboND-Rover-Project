@@ -1,5 +1,15 @@
 ## Project: Search and Sample Return
 
+[//]: # (Image References)
+
+[image1]: ./misc/rover_image.jpg
+[image2]: ./calibration_images/example_grid1.jpg
+[image3]: ./calibration_images/example_rock1.jpg
+[fig1]: ./misc/fig1.png
+[fig2]: ./misc/fig2.png
+[fig3]: ./misc/fig3.png
+
+
 ### Notebook Analysis
 
 #### Running the Notebook, and making modifications
